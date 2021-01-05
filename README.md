@@ -120,4 +120,4 @@ int main() {
 * 人脸：
 ![](https://github.com/JOJO-debug622/Project2/blob/main/%E6%95%B0%E6%8D%AE1.PNG)
 * 背景：
-![](
+![](https://github.com/JOJO-debug622/Project2/blob/main/%E6%95%B0%E6%8D%AE2.PNG)
