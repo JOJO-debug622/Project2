@@ -6,7 +6,47 @@
 ### 函数：
 * 第一个函数：
 ```cpp
- float* result1 = new float[(rows / c.stride) * (cols / c.stride) * c.out_channels]{ 0 };
+ float* conv2(float* input, int rows, int cols, int channels,conv_param& c) {
+    float* result;
+    result = new float[c.out_channels * (2 + rows/c.stride) * (2 + cols/c.stride)]{ 0 };
+    for (int i = 0; i < c.out_channels; i++) {
+        for (int x = 0; x < rows/c.stride; x++) {
+            for (int y = 0; y < cols/c.stride; y++) {
+                for (int a = 0; a < 3; a++) {
+                    for (int b = 0; b < 3; b++) {
+                        for (int j = 0; j < channels; j++) {
+                            result[i * (2 +( rows / c.stride)) * (2 + (cols / c.stride)) + (x + 1) * (2 + cols / c.stride) + y + 1] += input[j * (2 + rows) * (cols + 2) + (x * c.stride + a) * (2 + cols) + y * c.stride + b] * c.p_weight[i * 9 * channels + j * 9 + a * 3 + b];
+
+
+
+
+                        }
+                        
+
+
+                    }
+                   
+                }
+                result[(2 + rows / c.stride) * (2 + cols / c.stride) * i + (1 + x) * (2 + cols / c.stride) + y + 1] += c.p_bias[i];
+            }
+        
+            
+        }
+           
+    }
+ 
+    for (int i = 0; i < c.out_channels * (2 + rows / c.stride) * (2 + cols / c.stride); i++) {
+
+        if (result[i] < 0) { result[i] = 0; }
+    }
+    delete[]input;
+    return result;
+    delete[] result;
+}
+
+
+float* conv(float* input, int rows, int cols, int channels, conv_param& c) {
+    float* result1 = new float[(rows / c.stride) * (cols / c.stride) * c.out_channels]{ 0 };
     int n = 0;
     for (int i = 0; i < c.out_channels; i++) {
         for (int x = 0; x < rows; x += c.stride) {
@@ -51,6 +91,7 @@
     
     delete[]result1;
     return result;
+
 }
 ```
 卷积层的函数代码，包括卷积计算、RELu（将小于0的值返回成0），得到结果矩阵。
