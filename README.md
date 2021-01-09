@@ -109,26 +109,26 @@ int main(){
     
    
 
-    float* result = new float[8 * 8 * 32];
+    float* result = new float[2]{ 0 };
     for (int i = 0; i < 32; i++) {
         for (int x = 0; x < 8; x++) {
             for (int y = 0; y < 8; y++) {
-                result[i * 64 + x * 8 + y] = topool[i * 100 + (x + 1) * 10 + y + 1];
+                result[0] += fc_params[0].p_weight[i*64+8*x+y] * topool[i * 100 + (x + 1) * 10 + y + 1];
+                result[1] += fc_params[0].p_weight[i * 64 + 8 * x + y+2048] * topool[i * 100 + (x + 1) * 10 + y + 1];
             }
         }
     }
     
    
 
-    float* x = new float[2]{ 0 };
-    for (int i = 0; i < 2048; i++) {
-        x[0] += fc_params[0].p_weight[i] * result[i];
-        x[1] += fc_params[0].p_weight[i + 2048] * result[i];
-    }
-    x[0] += fc_params[0].p_bias[0];
-    x[1] += fc_params[0].p_bias[1];
-    std::cout << "bg score: " << exp(x[0]) / (exp(x[0]) + exp(x[1])) << std::endl;
-    std::cout << "face score: " << exp(x[1]) / (exp(x[0]) + exp(x[1])) << std::endl;
+    
+    
+    result[0] += fc_params[0].p_bias[0];
+    result[1] += fc_params[0].p_bias[1];
+    std::cout << "bg score: " << exp(result[0]) / (exp(result[0]) + exp(result[1])) << std::endl;
+    std::cout << "face score: " << exp(result[1]) / (exp(result[0]) + exp(result[1])) << std::endl;
+    
+    return 0;
 }
 ```
 先读取图片转换为MAT矩阵，在转换为以为矩阵，同时缩小每个元素的大小，使其处于（0，1）区间，之后进行识别。
