@@ -6,35 +6,51 @@
 ### 函数：
 * 第一个函数：
 ```cpp
-float* conv(float* input, int rows, int cols, int channels,conv_param& c) {
-    float* result;
-    result = new float[c.out_channels * (2 + rows/c.stride) * (2 + cols/c.stride)]{ 0 };
+ float* result1 = new float[(rows / c.stride) * (cols / c.stride) * c.out_channels]{ 0 };
+    int n = 0;
     for (int i = 0; i < c.out_channels; i++) {
-        for (int x = 0; x < rows/c.stride; x++) {
-            for (int y = 0; y < cols/c.stride; y++) {
-                for (int j = 0; j < 3; j++) {
-                    for (int ptr = 1; ptr < 1+channels; ptr++) {
-                        result[(2 + rows/c.stride) * (2 + cols/c.stride) * i + (1 + x) * (2 + cols/c.stride) + y + 1] += input[(2 + cols) *c.stride* x+(channels-ptr)*( rows+2)*(cols+2)+y*c.stride+j]*c.p_weight[i*9*c.in_channels+j+(ptr-1)*9];
-                        result[(2 + rows/c.stride) * (2 + cols/c.stride) * i + (1 + x) * (2 + cols/c.stride) + y + 1] += input[(2 + cols) * (c.stride * x+1) + (channels - ptr) * (rows + 2) * (cols + 2) + c.stride*y+j] * c.p_weight[i * 9 * c.in_channels + j+3 + (ptr - 1) * 9];
-                        result[(2 + rows / c.stride) * (2 + cols / c.stride) * i + (1 + x) * (2 + cols / c.stride) + y + 1] += input[(2 + cols) * (c.stride * x + 2) + (channels - ptr) * (rows + 2) * (cols + 2) + y * c.stride + j] * c.p_weight[i * 9 * c.in_channels + j + 6 + (ptr - 1) * 9];
+        for (int x = 0; x < rows; x += c.stride) {
+            for (int y = 0; y < cols; y += c.stride) {
+                for (int j = 0; j < channels; j++) {
+                    for (int a = 0; a < 3; a++) {
+                        for (int b = 0; b < 3; b++) {
+                            result1[n] += input[j * (rows + 2) * (cols + 2) + (x + a) * (cols + 2) + y + b] * c.p_weight[i * channels * 9 + j * 9 + a * 3 + b];
+                        }
                     }
                 }
-           
-                result[(2 + rows / c.stride) * (2 + cols / c.stride) * i + (1 + x) * (2 + cols / c.stride) + y + 1] += c.p_bias[i];
+                n++;
             }
-        
-            
         }
     }
- 
-    int n = c.out_channels *(2+ rows / c.stride) *( 2+ cols / c.stride);
-    for (int i = 0; i < n; i++) {   
 
-        if (result[i] < 0) { result[i] = 0; }
+
+    
+    for (int i = 0; i < c.out_channels; i++) {
+        for (int j = 0; j < (rows / c.stride) * (cols / c.stride); j++) {
+            result1[i * (rows / c.stride) * (cols / c.stride) + j] += c.p_bias[i];
+        }
     }
-    delete[]input;
+    for (int i = 0; i < (rows / c.stride) * (cols / c.stride) * c.out_channels; i++) {
+        if (result1[i] < 0)result1[i] = 0;
+    }
+
+    
+    float* result = new float[(rows / c.stride + 2) * (cols / c.stride + 2) * c.out_channels]{ 0 };
+
+    int rows1 = rows / c.stride;
+    int cols1 = cols / c.stride;
+    for (int i = 0; i < c.out_channels; i++) {
+        for (int x = 0; x < rows1; x++) {
+            for (int y = 0; y < cols1; y++) {
+                result[i * (rows1 + 2) * (cols1 + 2) + (x + 1) * (2  + cols1) + y + 1] = result1[i * rows1 * cols1 + x * cols1+ y];
+
+            }
+        }
+    }
+
+    
+    delete[]result1;
     return result;
-    delete[] result;
 }
 ```
 卷积层的函数代码，包括卷积计算、RELu（将小于0的值返回成0），得到结果矩阵。
@@ -60,12 +76,17 @@ float* pool(float * conv0, int rows,int cols,int channels){
 
 ### 主程序：
 ```cpp
-int main() {
-	Mat image = imread("bg.jpg");
+int main(){
+    Mat image = imread("bg.jpg");
     float* input0_0;
-   
-    input0_0 = new float[(image.rows + 2) * (2 + image.cols) * 3]{ 0 };
- 
+    input0_0 = new float[(image.rows + 2) * (image.cols + 2) * 3]{ 0 };
+    for (int i = 0; i < image.rows; i++) {
+        for (int j = 0; j < image.cols; j++) {
+            input0_0[(i+1) * (image.cols + 2) + j + 1] = (float)image.at<Vec3b>(i, j)[2] / (float)255;
+            input0_0[(i+1) * (image.cols + 2) + j + 1+ (image.rows + 2) * (image.cols + 2)*1] = (float)image.at<Vec3b>(i, j)[1] / (float)255;
+            input0_0[(i+1)* (image.cols + 2) + j + 1+ (image.rows + 2) * (image.cols + 2)*2] = (float)image.at<Vec3b>(i, j)[0] / (float)255;
+        }
+ }
 
 
     if (image.data == nullptr)
@@ -73,45 +94,41 @@ int main() {
         std::cerr << "图片文件不存在" << std::endl;
         return 0;
     }
+    
 
-     for (size_t y = 0; y < image.rows; ++y) {
 
-      
-        unsigned char* row_ptr= image.ptr<unsigned char>(y);
-        for (size_t x = 0; x < image.cols; ++x) {
-            
-            unsigned char* data_ptr = &row_ptr[x*image.channels()];
-            
-            
-            input0_0[(x + 1) * (2 + image.cols) + y + 1] = float(image.at<Vec3b>(x, y)[0]) / (float)255.0;
-            input0_0[(image.rows + 2) * (2 + image.cols) * 1 + (x + 1) * (2 + image.cols) + y + 1] = float(image.at<Vec3b>(x, y)[1]) / (float)255.0;
-            input0_0[(image.rows + 2) * (2 + image.cols) * 2 + (x + 1) * (2 + image.cols) + y + 1] = float(image.at<Vec3b>(x, y)[2]) / (float)255.0;
-            
-        }
-    }
 
     float* topool;
-    topool = conv(input0_0, 128, 128, 3, conv_params[0]);
+    topool = conv2(input0_0, 128, 128, 3, conv_params[0]);
     input0_0 = pool(topool, 64, 64, 16);
-    topool = conv(input0_0, 32, 32, 16, conv_params[1]);
+    topool = conv2(input0_0, 32, 32, 16, conv_params[1]);
     input0_0 = pool(topool, 32, 32, 32);
-    topool = conv(input0_0, 16, 16, 32, conv_params[2]);
-
-    float* result = new float[2]{ 0 };
-
-    for (int i = 0; i < 2048; i++) {
-        result[0] += fc_params[0].p_weight[i] * topool[i];
-        result[1] += fc_params[0].p_weight[i + 2048] * topool[i];
-    }
-    result[0] += fc0_bias[0];
-    result[1] += fc0_bias[1];
-
-    std::cout << "bg score: " << result[0] << std::endl;
-    std::cout << "face score: " << result[1] << std::endl;
+    topool = conv2(input0_0, 16, 16, 32, conv_params[2]);
     
-  
+   
+    
+   
 
-	return 0;
+    float* result = new float[8 * 8 * 32];
+    for (int i = 0; i < 32; i++) {
+        for (int x = 0; x < 8; x++) {
+            for (int y = 0; y < 8; y++) {
+                result[i * 64 + x * 8 + y] = topool[i * 100 + (x + 1) * 10 + y + 1];
+            }
+        }
+    }
+    
+   
+
+    float* x = new float[2]{ 0 };
+    for (int i = 0; i < 2048; i++) {
+        x[0] += fc_params[0].p_weight[i] * result[i];
+        x[1] += fc_params[0].p_weight[i + 2048] * result[i];
+    }
+    x[0] += fc_params[0].p_bias[0];
+    x[1] += fc_params[0].p_bias[1];
+    std::cout << "bg score: " << exp(x[0]) / (exp(x[0]) + exp(x[1])) << std::endl;
+    std::cout << "face score: " << exp(x[1]) / (exp(x[0]) + exp(x[1])) << std::endl;
 }
 ```
 先读取图片转换为MAT矩阵，在转换为以为矩阵，同时缩小每个元素的大小，使其处于（0，1）区间，之后进行识别。
